@@ -55,4 +55,5 @@ resource "azurerm_linux_web_app" "main" {
   # checkov:skip=CKV_AZURE_17:Client Certificates require custom setup
   # checkov:skip=CKV_AZURE_222:Public access required for student testing
   # checkov:skip=CKV_AZURE_13:Auth managed at application layer
+  # checkov:skip=CKV_AZURE_88:Storage is managed via stateless deployment; Azure Files not required for this lab
 }
