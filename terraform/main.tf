@@ -9,14 +9,14 @@ resource "azurerm_resource_group" "secondary" {
 }
 
 module "app_centralindia" {
-  source              = "./modules/app_service"
+  source              = "./modules/app-service"
   resource_group_name = azurerm_resource_group.primary.name
   location            = azurerm_resource_group.primary.location
   app_name            = "web-prod-centralindia-001"
 }
 
 module "app_koreacentral" {
-  source              = "./modules/app_service"
+  source              = "./modules/app-service"
   resource_group_name = azurerm_resource_group.secondary.name
   location            = azurerm_resource_group.secondary.location
   app_name            = "web-prod-koreacentral-001"
