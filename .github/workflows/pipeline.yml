@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 permissions:
-  id-token: write # Required for OIDC
+  id-token: write 
   contents: read
   pull-requests: write
 
@@ -18,94 +18,79 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@master
         with:
           directory: terraform/
           framework: terraform
-          # soft_fail: false means the pipeline stops if a "High" severity issue is found
           soft_fail: false 
-          output_format: cli
+
   terraform-plan:
     name: 'Terraform Plan'
+    needs: security-scan # Ensure we only plan if security passes
     runs-on: ubuntu-latest
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ env.ARM_CLIENT_ID }}
           tenant-id: ${{ env.ARM_TENANT_ID }}
           subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-
       - name: Terraform Init
         run: terraform init
         working-directory: ./terraform
-
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color
         working-directory: ./terraform
-
       - name: Update Pull Request
         uses: actions/github-script@v7
         if: github.event_name == 'pull_request'
+        env:
+          PLAN: "${{ steps.plan.outputs.stdout }}"
         with:
           script: |
             const output = `#### Terraform Plan 📖
-            \`\`\`\n
-            ${process.env.PLAN}
-            \n\`\`\``;
+            \`\`\`\n${process.env.PLAN}\n\`\`\``;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: output
             })
-        env:
-          PLAN: "${{ steps.plan.outputs.stdout }}"
 
   terraform-apply:
-    name: 'Apply to ${{ matrix.region }}'
-    needs: [terraform-plan, security-scan]
+    name: 'Terraform Apply'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [terraform-plan] # Matrix removed here for State Locking safety
     runs-on: ubuntu-latest
     environment: production
-    strategy:
-      # Parallelize deployments to all regions simultaneously
-      matrix:
-        region: [centralindia, koreacentral] 
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      # Pass the matrix region to Terraform via an environment variable
-      TF_VAR_location: ${{ matrix.region }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ env.ARM_CLIENT_ID }}
           tenant-id: ${{ env.ARM_TENANT_ID }}
           subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
-
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
       - name: Terraform Apply
-        run: |
-          terraform init
-          # We target the specific module for this matrix instance
-          terraform apply -target=module.app_${{ matrix.region }} -auto-approve
+        run: terraform apply -auto-approve
         working-directory: ./terraform
