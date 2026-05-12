@@ -4,7 +4,7 @@ resource "azurerm_service_plan" "main" {
   resource_group_name = var.resource_group_name
   location            = var.location
   os_type             = "Linux"
-  sku_name            = "B1" # Basic tier for testing; change to P1v2 for real prod
+  sku_name            = "P1v2" # Basic tier for testing; change to P1v2 for real prod
 }
 
 # Create the Web App
