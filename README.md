@@ -147,5 +147,3 @@ PRs and issues are welcome! Please open an issue for feature requests or bug rep
 `#terraform` `#azure` `#gitops` `#oidc` `#multiregion` `#iac` `#devops` `#github-actions`
 
 ---
-
-Let me know if you want to add badges, diagrams, or more usage examples!
